@@ -1,0 +1,316 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="el">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Η Μάχη της Προκαταβολής</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+    body {
+      background-color: #1a1a1a;
+      color: #fff;
+      font-family: 'Press Start 2P', monospace;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      background-image: url('https://img.pikbest.com/backgrounds/20200528/retro-game-scene-pixel-art-8-bit-sci-fi-background--v_1772538jpg!w700wp');
+      background-size: cover;
+      background-position: center;
+      box-sizing: border-box;
+    }
+    .dialogue-box {
+      background-color: #000066;
+      border: 4px solid #ff66cc;
+      padding: 16px;
+      width: 90vw;
+      max-width: 700px;
+      box-shadow: 0 0 20px #000;
+      box-sizing: border-box;
+      transition: opacity 0.5s ease;
+    }
+    .dialogue-content {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+    }
+    .dialogue-text {
+      font-size: 12px;
+      line-height: 1.6;
+      margin-bottom: 16px;
+      flex: 1;
+    }
+    .option {
+      background-color: #0033cc;
+      border: 2px solid #ffcc00;
+      padding: 10px;
+      margin: 6px 0;
+      cursor: pointer;
+      color: #fff;
+      font-size: 10px;
+      text-align: center;
+      transition: background-color 0.3s;
+    }
+    .option:hover {
+      background-color: #0044ff;
+    }
+    h1 {
+      text-align: center;
+      color: #ffcc00;
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+    img {
+      width: 150px;
+      height: auto;
+      border: 4px solid #fff;
+      transition: opacity 0.5s ease;
+      object-fit: contain;
+    }
+    .sword-image {
+      max-height: 100px;
+    }
+    .attribution {
+      font-size: 8px;
+      color: #ccc;
+      text-align: center;
+      margin-top: 10px;
+    }
+    @media (max-width: 600px) {
+      .dialogue-content {
+        flex-direction: column;
+        align-items: center;
+      }
+      .dialogue-text {
+        font-size: 12px;
+      }
+      .option {
+        font-size: 10px;
+      }
+      h1 {
+        font-size: 14px;
+      }
+      img {
+        width: 120px;
+      }
+      .sword-image {
+        max-height: 80px;
+      }
+    }
+    @media (min-width: 601px) {
+      .dialogue-text {
+        font-size: 14px;
+      }
+      .option {
+        font-size: 12px;
+      }
+      h1 {
+        font-size: 16px;
+      }
+    }
+    .fade-out {
+      opacity: 0;
+    }
+    .fade-in {
+      opacity: 1;
+    }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+</head>
+<body>
+  <audio id="click-sound" src="click.mp3"></audio>
+  <audio id="fail-sound" src="fail.mp3"></audio>
+  <div class="dialogue-box fade-in" id="dialogue-box">
+    <h1>🧙‍♂️ Η Μάχη της Προκαταβολής</h1>
+    <div class="dialogue-content">
+      <img id="scene-image" src="https://opengameart.org/sites/default/files/wizard.png" alt="Ο Κώστας ο Μάγος">
+      <div class="dialogue-text" id="dialogue-text"></div>
+    </div>
+    <div id="options"></div>
+  </div>
+  <div class="attribution">
+    Image: <a href="https://pikbest.com/backgrounds/20200528/retro-game-scene-pixel-art-8-bit-sci-fi-background_1772538.html" target="_blank">pikbest.com</a>
+  </div>
+
+  <script>
+    const clickSound = document.getElementById("click-sound");
+    const failSound = document.getElementById("fail-sound");
+    const dialogueBox = document.getElementById("dialogue-box");
+    const dialogueText = document.getElementById("dialogue-text");
+    const sceneImage = document.getElementById("scene-image");
+    const optionsContainer = document.getElementById("options");
+
+    const scenes = [
+      {
+        text: "Ω Μέγα Αλέξανδρε, μήπως να μου έδινες <strong>500€</strong> νωρίτερα; Ως μεγάλος αδερφός, ξέρεις ότι τα λεφτά μου πάνε σε... σοφές επενδύσεις! 😎",
+        image: "https://opengameart.org/sites/default/files/wizard.png",
+        options: [
+          { text: "▶ Δώσε την προκαταβολή", nextScene: 1, sound: "click" },
+          { text: "Δώσε 250€", nextScene: 2, sound: "fail" },
+          { text: "Αρνήσου και αποδέξου τη μοίρα σου", nextScene: 3, sound: "fail" },
+        ],
+      },
+      {
+        text: "Ο Αλέξανδρος έδωσε την προκαταβολή και το βασίλειο πανηγυρίζει! 🎉 Ο Κώστας υπόσχεται να σου πει την καλύτερη ιστορία με ήρωα τον Αμπλιανίτη! 😄",
+        image: "https://opengameart.org/sites/default/files/coins.png",
+        options: [
+          { text: "Άντε, πες την ιστορία!", nextScene: 4, sound: "click" },
+          { text: "Ξεκίνα Ξανά", nextScene: 0, sound: "fail" },
+        ],
+      },
+      {
+        text: "Ο Αλέξανδρος έδωσε τα μισά. Ο Κώστας δέχεται... προσωρινά. 🤔 «Τα άλλα 250€ πότε θα τα δω;»",
+        image: "https://opengameart.org/sites/default/files/sword.png",
+        imageClass: "sword-image",
+        options: [
+          { text: "Δώσε και τα υπόλοιπα τώρα!", nextScene: 1, sound: "click" },
+          { text: "Περίμενε μέχρι το τέλος του μήνα", nextScene: 5, sound: "fail" },
+          { text: "Ξεκίνα Ξανά", nextScene: 0, sound: "fail" },
+        ],
+      },
+      {
+        text: "Η άρνηση φέρνει σκοτεινές μέρες... 😢 Ο Κώστας, ως σοφός μεγάλος αδερφός, σου δίνει άλλη μια ευκαιρία. «Λοιπόν, Αλέξανδρε, θα δώσεις τα 500€ ή θα φάμε πίτσες με δανεικά;»",
+        image: "https://opengameart.org/sites/default/files/fireball.png",
+        options: [
+          { text: "Εντάξει, δίνω τα 500€", nextScene: 1, sound: "click" },
+          { text: "Πίτσες με δανεικά!", nextScene: 6, sound: "fail" },
+          { text: "Ξεκίνα Ξανά", nextScene: 0, sound: "fail" },
+        ],
+      },
+      {
+        text: "«Μια φορά κι έναν καιρό, ο Αμπλιανίτης είχε έρθει από το σπίτι και ζυγιστήκαμε. Παρότι είδε ότι είναι 15 κιλά πιο βαρύς, έφαγε γαριδάκια με γιαούρτι! Κι έζησα εγώ καλά, αυτός δεν ξέρω. The end» 😎",
+        image: "https://opengameart.org/sites/default/files/pizza.png",
+        options: [
+          { text: "Ξεκίνα Ξανά", nextScene: 0, sound: "fail" },
+        ],
+      },
+      {
+        text: "«Ωραία, θα περιμένω τα υπόλοιπα 1250€ στο τέλος του μήνα, όπως είπες! 😇» Ο Κώστας χαμογελά πονηρά. Τέλος... για τώρα!",
+        image: "https://opengameart.org/sites/default/files/sword.png",
+        imageClass: "sword-image",
+        options: [
+          { text: "Ξεκίνα Ξανά", nextScene: 0, sound: "fail" },
+        ],
+      },
+      {
+        text: "«ΓΤΧΣΚΤΠΣ! Τα 500€ πότε θα τα δω;» Ο Κώστας γελάει, αλλά περιμένει απάντηση!",
+        image: "https://opengameart.org/sites/default/files/pizza.png",
+        options: [
+          { text: "Εντάξει, δίνω τα 500€", nextScene: 1, sound: "click" },
+          { text: "Ξεκίνα Ξανά", nextScene: 0, sound: "fail" },
+        ],
+      },
+    ];
+
+    let currentScene = 0;
+
+    function playSound(audio) {
+      audio.load(); // Preload to avoid autoplay issues
+      audio.currentTime = 0; // Reset to start
+      audio.play().catch((err) => {
+        console.warn(`Failed to play sound: ${audio.src}`, err.message);
+      });
+    }
+
+    function renderScene(sceneIndex) {
+      const scene = scenes[sceneIndex];
+      dialogueBox.classList.add("fade-out");
+      sceneImage.classList.add("fade-out");
+
+      setTimeout(() => {
+        dialogueText.innerHTML = scene.text;
+        sceneImage.src = scene.image;
+        sceneImage.className = scene.imageClass || "";
+        console.log(`Loading image for scene ${sceneIndex}: ${scene.image}`);
+        sceneImage.onerror = () => {
+          console.error(`Failed to load image: ${scene.image}`);
+          sceneImage.src = "https://opengameart.org/sites/default/files/wizard.png";
+          sceneImage.className = "";
+        };
+        optionsContainer.innerHTML = "";
+        scene.options.forEach((opt) => {
+          const optionDiv = document.createElement("div");
+          optionDiv.className = "option";
+          optionDiv.textContent = opt.text;
+          optionDiv.onclick = () => {
+            if (opt.sound === "click") {
+              playSound(clickSound);
+            } else {
+              playSound(failSound);
+            }
+            nextScene(opt.nextScene);
+          };
+          optionsContainer.appendChild(optionDiv);
+        });
+        dialogueBox.classList.remove("fade-out");
+        dialogueBox.classList.add("fade-in");
+        sceneImage.classList.remove("fade-out");
+        sceneImage.classList.add("fade-in");
+      }, 500);
+    }
+
+    function nextScene(sceneIndex) {
+      currentScene = sceneIndex;
+      renderScene(currentScene);
+    }
+
+    // Preload images
+    scenes.forEach((scene) => {
+      const img = new Image();
+      img.src = scene.image;
+      img.onerror = () => console.warn(`Preload failed for image: ${scene.image}`);
+    });
+
+    // Preload audio
+    clickSound.load();
+    failSound.load();
+
+    renderScene(currentScene);
+  </script>
+</body>
+</html>
